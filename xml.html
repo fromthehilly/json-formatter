@@ -80,6 +80,7 @@
 <div class="toolbar" style="max-width:1400px;margin:0 auto;width:100%;padding-left:16px;padding-right:16px">
   <button id="format" class="primary" type="button">Format</button>
   <button id="minify" type="button">Minify</button>
+  <button id="validate" type="button">Validate</button>
   <select id="indent" aria-label="Indentation">
     <option value="2">2 spaces</option>
     <option value="4">4 spaces</option>
@@ -176,16 +177,40 @@
   function setStatus(text, isErr) { msg.textContent = text; msg.className = isErr ? "err" : ""; }
 
   // DOMParser reports well-formedness errors in a <parsererror> element.
-  function validate(text) {
+  function parseXml(text) {
     var doc = new DOMParser().parseFromString(text, "application/xml");
     var err = doc.getElementsByTagName("parsererror")[0];
-    if (!err) return null;
-    var raw = (err.textContent || "").trim().split("\n");
-    var line = raw.filter(function (l) { return /line|column|error|expected|mismatch/i.test(l); })[0] || raw[0];
-    return line.replace(/^This page contains the following errors:\s*/i, "").trim();
+    if (!err) return { doc: doc };
+    var raw = (err.textContent || "").trim();
+    var m = /line (\d+) at column (\d+):?\s*([^\n]*)/i.exec(raw); // Chromium / Safari
+    if (m) return { error: { line: +m[1], col: +m[2], msg: m[3] } };
+    var first = raw.split("\n")[0].replace(/^XML Parsing Error:\s*/i, "");
+    m = /Line Number (\d+), Column (\d+)/i.exec(raw); // Firefox
+    return { error: m ? { line: +m[1], col: +m[2], msg: first } : { msg: first } };
   }
 
-  function run(minify) {
+  // Report a parse error; when `jump` is set, select the offending character in the input.
+  function report(err, text, jump) {
+    setStatus("Invalid XML: " + (err.msg || "not well-formed") +
+      (err.line ? " (line " + err.line + ", column " + err.col + ")" : ""), true);
+    if (!jump || !err.line) return;
+    var lines = text.split("\n"), offset = 0;
+    for (var i = 0; i < err.line - 1 && i < lines.length; i++) offset += lines[i].length + 1;
+    offset = Math.min(offset + err.col - 1, text.length);
+    input.focus();
+    input.setSelectionRange(offset, Math.min(offset + 1, text.length));
+  }
+
+  function check() {
+    var text = input.value;
+    if (!text.trim()) { setStatus("Nothing to validate.", false); return; }
+    var res = parseXml(text);
+    if (res.error) { report(res.error, text, true); return; }
+    var n = res.doc.getElementsByTagName("*").length;
+    setStatus("✓ Well-formed XML: root <" + res.doc.documentElement.nodeName + ">, " + n + (n === 1 ? " element." : " elements."), false);
+  }
+
+  function run(minify, jump) {
     var text = input.value;
     $("inSize").textContent = text ? bytes(text) : "";
     if (!text.trim()) {
@@ -193,10 +218,10 @@
       setStatus("Paste XML on the left.", false);
       return;
     }
-    var problem = validate(text);
-    if (problem) {
+    var res = parseXml(text);
+    if (res.error) {
       plain = ""; out.textContent = ""; $("outSize").textContent = "";
-      setStatus("Invalid XML: " + problem, true);
+      report(res.error, text, jump);
       return;
     }
     var tokens = tokenize(text);
@@ -217,8 +242,9 @@
   input.addEventListener("keydown", function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run(false); }
   });
-  $("format").onclick = function () { run(false); };
-  $("minify").onclick = function () { run(true); };
+  $("format").onclick = function () { run(false, true); };
+  $("minify").onclick = function () { run(true, true); };
+  $("validate").onclick = check;
   $("indent").onchange = function () { run(false); };
   $("clear").onclick = function () { input.value = ""; run(false); input.focus(); };
 
