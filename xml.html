@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XML Formatter</title>
+<meta name="description" content="Format, prettify, minify and validate XML in your browser. Nothing is uploaded.">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2433; --muted: #6b7385; --border: #d9dde5;
+    --accent: #2f6fed; --accent-text: #ffffff; --error: #c62828; --error-bg: #fdecea;
+    --tag: #0b5cad; --attr: #8250df; --value: #1a7f37; --comment: #6b7385; --misc: #b35c00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1218; --panel: #171b23; --text: #e4e7ee; --muted: #8a93a6; --border: #2a303c;
+      --accent: #5b8cff; --accent-text: #0b1020; --error: #ff8a80; --error-bg: #3a1c1c;
+      --tag: #79b8ff; --attr: #d2a8ff; --value: #7ee787; --comment: #8a93a6; --misc: #ffa657;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1218; --panel: #171b23; --text: #e4e7ee; --muted: #8a93a6; --border: #2a303c;
+    --accent: #5b8cff; --accent-text: #0b1020; --error: #ff8a80; --error-bg: #3a1c1c;
+    --tag: #79b8ff; --attr: #d2a8ff; --value: #7ee787; --comment: #8a93a6; --misc: #ffa657;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header, main, footer { width: 100%; max-width: 1400px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; padding-bottom: 8px; }
+  h1 { font-size: 20px; margin: 0; }
+  h1 small { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 8px; }
+  nav { display: flex; gap: 4px; }
+  nav a { padding: 4px 10px; border-radius: 6px; text-decoration: none; color: var(--muted); border: 1px solid transparent; font-size: 14px; }
+  nav a[aria-current="page"] { color: var(--text); border-color: var(--border); background: var(--panel); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-bottom: 12px; }
+  button, select, label.btn {
+    font: inherit; font-size: 14px; color: var(--text); background: var(--panel);
+    border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  }
+  button:hover, label.btn:hover, select:hover { border-color: var(--accent); }
+  button:focus-visible, select:focus-visible, textarea:focus-visible, label.btn:focus-within, nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  .spacer { flex: 1; }
+  main { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 12px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  .pane { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; min-height: 280px; overflow: hidden; }
+  .pane-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+  textarea, pre#out {
+    flex: 1; margin: 0; padding: 12px; border: 0; background: transparent; color: var(--text);
+    font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    resize: none; width: 100%; min-height: 50vh; overflow: auto; tab-size: 2;
+  }
+  textarea { outline: none; }
+  pre#out { white-space: pre; }
+  pre#out:empty::before { content: "Formatted output appears here"; color: var(--muted); }
+  .t { color: var(--tag); } .a { color: var(--attr); } .v { color: var(--value); }
+  .c { color: var(--comment); font-style: italic; } .m { color: var(--misc); }
+  #status { margin: 0 auto; width: 100%; max-width: 1400px; padding: 0 16px 12px; }
+  #status div { padding: 8px 12px; border-radius: 6px; font-size: 14px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); }
+  #status div.err { background: var(--error-bg); border-color: var(--error); color: var(--error); }
+  footer { padding-bottom: 16px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>XML Formatter <small>runs entirely in your browser</small></h1>
+  <div style="display:flex;gap:8px;align-items:center">
+    <nav aria-label="Tools"><a href="index.html">JSON</a><a href="xml.html" aria-current="page">XML</a></nav>
+    <button id="theme" type="button" aria-label="Toggle dark mode">Theme</button>
+  </div>
+</header>
+
+<div class="toolbar" style="max-width:1400px;margin:0 auto;width:100%;padding-left:16px;padding-right:16px">
+  <button id="format" class="primary" type="button">Format</button>
+  <button id="minify" type="button">Minify</button>
+  <select id="indent" aria-label="Indentation">
+    <option value="2">2 spaces</option>
+    <option value="4">4 spaces</option>
+    <option value="tab">Tab</option>
+  </select>
+  <span class="spacer"></span>
+  <label class="btn">Open file<input type="file" id="file" accept=".xml,.svg,.xsd,.xsl,.xslt,.rss,.atom,application/xml,text/xml,text/plain" hidden></label>
+  <button id="copy" type="button">Copy</button>
+  <button id="download" type="button">Download</button>
+  <button id="clear" type="button">Clear</button>
+</div>
+
+<div id="status" aria-live="polite"><div id="msg">Paste XML on the left.</div></div>
+
+<main>
+  <section class="pane">
+    <div class="pane-head"><span>Input</span><span id="inSize"></span></div>
+    <textarea id="in" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="&lt;root&gt;&lt;item id=&quot;1&quot;&gt;paste your XML here&lt;/item&gt;&lt;/root&gt;"></textarea>
+  </section>
+  <section class="pane">
+    <div class="pane-head"><span>Output</span><span id="outSize"></span></div>
+    <pre id="out"></pre>
+  </section>
+</main>
+
+<footer>Your data never leaves this page. Tip: press Ctrl/Cmd + Enter to format.</footer>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var input = $("in"), out = $("out"), msg = $("msg");
+  var plain = "";
+
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function bytes(s) {
+    var n = new Blob([s]).size;
+    return n < 1024 ? n + " B" : (n / 1024).toFixed(1) + " KB";
+  }
+
+  // Split XML into tags, comments, CDATA, processing instructions, doctype and text.
+  var TOKEN = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<![^>]*(?:\[[\s\S]*?\]\s*)?>|<\/?[^>]+>|[^<]+/g;
+
+  function tokenize(text) {
+    var tokens = [];
+    (text.match(TOKEN) || []).forEach(function (t) {
+      if (t.charAt(0) !== "<") {
+        t = t.replace(/\s+/g, " ").trim();
+        if (!t) return;
+      }
+      tokens.push(t);
+    });
+    return tokens;
+  }
+
+  var isClose = function (t) { return t.indexOf("</") === 0; };
+  var isOpen = function (t) { return /^<[^!?\/]/.test(t) && !/\/>$/.test(t); };
+
+  function highlightToken(t) {
+    if (t.charAt(0) !== "<") return esc(t);
+    if (t.indexOf("<!--") === 0) return '<span class="c">' + esc(t) + "</span>";
+    if (t.indexOf("<![CDATA[") === 0 || t.indexOf("<?") === 0 || t.indexOf("<!") === 0)
+      return '<span class="m">' + esc(t) + "</span>";
+    var m = /^<(\/?)([^\s>\/]+)([\s\S]*?)(\/?)>$/.exec(t);
+    if (!m) return esc(t);
+    var attrs = esc(m[3]).replace(/([^\s=]+)(\s*=\s*)(&quot;[^&]*&quot;|"[^"]*"|'[^']*')/g, function (_, n, eq, val) {
+      return '<span class="a">' + n + "</span>" + eq + '<span class="v">' + val + "</span>";
+    });
+    return '<span class="t">&lt;' + m[1] + m[2] + "</span>" + attrs + '<span class="t">' + m[4] + "&gt;</span>";
+  }
+
+  function format(tokens, unit) {
+    var lines = [], htmlLines = [], depth = 0;
+    function push(indent, parts) {
+      lines.push(indent + parts.join(""));
+      htmlLines.push(indent + parts.map(highlightToken).join(""));
+    }
+    for (var i = 0; i < tokens.length; i++) {
+      var t = tokens[i], pad = new Array(depth + 1).join(unit);
+      if (isOpen(t)) {
+        var n1 = tokens[i + 1], n2 = tokens[i + 2];
+        if (n1 && isClose(n1)) { push(pad, [t, n1]); i += 1; }
+        else if (n1 && n1.charAt(0) !== "<" && n2 && isClose(n2)) { push(pad, [t, n1, n2]); i += 2; }
+        else { push(pad, [t]); depth++; }
+      } else if (isClose(t)) {
+        depth = Math.max(0, depth - 1);
+        push(new Array(depth + 1).join(unit), [t]);
+      } else {
+        push(pad, [t]);
+      }
+    }
+    return { text: lines.join("\n"), html: htmlLines.join("\n") };
+  }
+
+  function setStatus(text, isErr) { msg.textContent = text; msg.className = isErr ? "err" : ""; }
+
+  // DOMParser reports well-formedness errors in a <parsererror> element.
+  function validate(text) {
+    var doc = new DOMParser().parseFromString(text, "application/xml");
+    var err = doc.getElementsByTagName("parsererror")[0];
+    if (!err) return null;
+    var raw = (err.textContent || "").trim().split("\n");
+    var line = raw.filter(function (l) { return /line|column|error|expected|mismatch/i.test(l); })[0] || raw[0];
+    return line.replace(/^This page contains the following errors:\s*/i, "").trim();
+  }
+
+  function run(minify) {
+    var text = input.value;
+    $("inSize").textContent = text ? bytes(text) : "";
+    if (!text.trim()) {
+      plain = ""; out.textContent = ""; $("outSize").textContent = "";
+      setStatus("Paste XML on the left.", false);
+      return;
+    }
+    var problem = validate(text);
+    if (problem) {
+      plain = ""; out.textContent = ""; $("outSize").textContent = "";
+      setStatus("Invalid XML: " + problem, true);
+      return;
+    }
+    var tokens = tokenize(text);
+    if (minify) {
+      plain = tokens.join("");
+      out.innerHTML = tokens.map(highlightToken).join("");
+    } else {
+      var ind = $("indent").value, r = format(tokens, ind === "tab" ? "\t" : new Array(+ind + 1).join(" "));
+      plain = r.text;
+      out.innerHTML = r.html;
+    }
+    $("outSize").textContent = bytes(plain);
+    setStatus("Well-formed XML. " + (minify ? "Minified" : "Formatted") + " " + bytes(text) + " → " + bytes(plain) + ".", false);
+  }
+
+  var timer;
+  input.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(function () { run(false); }, 250); });
+  input.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run(false); }
+  });
+  $("format").onclick = function () { run(false); };
+  $("minify").onclick = function () { run(true); };
+  $("indent").onchange = function () { run(false); };
+  $("clear").onclick = function () { input.value = ""; run(false); input.focus(); };
+
+  $("copy").onclick = function () {
+    if (!plain) return;
+    var done = function () { setStatus("Copied to clipboard.", false); };
+    if (navigator.clipboard) navigator.clipboard.writeText(plain).then(done, function () { setStatus("Copy failed.", true); });
+  };
+
+  $("download").onclick = function () {
+    if (!plain) return;
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([plain], { type: "application/xml" }));
+    a.download = "formatted.xml";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  function loadFile(f) {
+    var r = new FileReader();
+    r.onload = function () { input.value = r.result; run(false); };
+    r.readAsText(f);
+  }
+  $("file").onchange = function (e) { if (e.target.files[0]) loadFile(e.target.files[0]); e.target.value = ""; };
+  input.addEventListener("dragover", function (e) { e.preventDefault(); });
+  input.addEventListener("drop", function (e) {
+    var f = e.dataTransfer.files[0];
+    if (!f) return;
+    e.preventDefault();
+    loadFile(f);
+  });
+
+  function applyTheme(t) { if (t) document.documentElement.setAttribute("data-theme", t); }
+  try { applyTheme(localStorage.getItem("theme")); } catch (e) {}
+  $("theme").onclick = function () {
+    var cur = document.documentElement.getAttribute("data-theme") ||
+      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var next = cur === "dark" ? "light" : "dark";
+    applyTheme(next);
+    try { localStorage.setItem("theme", next); } catch (e) {}
+  };
+
+  run(false);
+})();
+</script>
+</body>
+</html>

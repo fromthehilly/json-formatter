@@ -4,6 +4,8 @@ A small, dependency-free JSON formatter, minifier and validator. Everything runs
 
 **Features:** format / minify, 2 or 4 spaces or tabs, sort keys, error messages with line and column, syntax highlighting, open or drag-and-drop a file, copy, download, light/dark theme.
 
+There is also an XML formatter at `xml.html` (format, minify, well-formedness check with the parser's error message, syntax highlighting, open/drop file, copy, download).
+
 ## Use locally
 
 Open `index.html` in a browser. There is no build step.
