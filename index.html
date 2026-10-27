@@ -41,6 +41,8 @@
   }
   button:hover, label.btn:hover, select:hover { border-color: var(--accent); }
   button:focus-visible, select:focus-visible, textarea:focus-visible, label.btn:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.icon, label.btn { display: inline-flex; align-items: center; justify-content: center; padding: 7px 10px; }
+  .ico { width: 18px; height: 18px; display: block; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
   button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
   .check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
   .spacer { flex: 1; }
@@ -73,7 +75,7 @@
   <h1>JSON Formatter <small>runs entirely in your browser</small></h1>
   <div style="display:flex;gap:8px;align-items:center">
     <nav aria-label="Tools"><a href="index.html" aria-current="page">JSON</a><a href="xml.html">XML</a></nav>
-    <button id="theme" type="button" aria-label="Toggle dark mode">Theme</button>
+    <button id="theme" class="icon" type="button" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
   </div>
 </header>
 
@@ -87,10 +89,10 @@
   </select>
   <label class="check"><input type="checkbox" id="sort"> Sort keys</label>
   <span class="spacer"></span>
-  <label class="btn">Open file<input type="file" id="file" accept=".json,application/json,text/plain" hidden></label>
-  <button id="copy" type="button">Copy</button>
-  <button id="download" type="button">Download</button>
-  <button id="clear" type="button">Clear</button>
+  <label class="btn" title="Open file" aria-label="Open file"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><input type="file" id="file" accept=".json,application/json,text/plain" hidden></label>
+  <button id="copy" class="icon" type="button" title="Copy" aria-label="Copy"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>
+  <button id="download" class="icon" type="button" title="Download" aria-label="Download"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></button>
+  <button id="clear" class="icon" type="button" title="Clear" aria-label="Clear"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
 </div>
 
 <div id="status" aria-live="polite"><div id="msg">Paste JSON on the left.</div></div>
