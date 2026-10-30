@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YAML Formatter</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="description" content="Format, validate and convert YAML to JSON in your browser. Nothing is uploaded.">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2433; --muted: #6b7385; --border: #d9dde5;
+    --accent: #2f6fed; --accent-text: #ffffff; --error: #c62828; --error-bg: #fdecea;
+    --key: #0b5cad; --value: #1a7f37; --bool: #8250df; --num: #b35c00; --comment: #6b7385;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1218; --panel: #171b23; --text: #e4e7ee; --muted: #8a93a6; --border: #2a303c;
+      --accent: #5b8cff; --accent-text: #0b1020; --error: #ff8a80; --error-bg: #3a1c1c;
+      --key: #79b8ff; --value: #7ee787; --bool: #d2a8ff; --num: #ffa657; --comment: #8a93a6;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1218; --panel: #171b23; --text: #e4e7ee; --muted: #8a93a6; --border: #2a303c;
+    --accent: #5b8cff; --accent-text: #0b1020; --error: #ff8a80; --error-bg: #3a1c1c;
+    --key: #79b8ff; --value: #7ee787; --bool: #d2a8ff; --num: #ffa657; --comment: #8a93a6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header, main, footer { width: 100%; max-width: 1400px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; padding-bottom: 8px; }
+  h1 { font-size: 20px; margin: 0; }
+  h1 small { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 8px; }
+  nav { display: flex; gap: 4px; }
+  nav a { padding: 4px 10px; border-radius: 6px; text-decoration: none; color: var(--muted); border: 1px solid transparent; font-size: 14px; }
+  nav a[aria-current="page"] { color: var(--text); border-color: var(--border); background: var(--panel); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-bottom: 12px; }
+  button, select, label.btn {
+    font: inherit; font-size: 14px; color: var(--text); background: var(--panel);
+    border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  }
+  button.icon, label.btn { display: inline-flex; align-items: center; justify-content: center; padding: 7px 10px; }
+  .ico { width: 18px; height: 18px; display: block; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  button:hover, label.btn:hover, select:hover { border-color: var(--accent); }
+  button:focus-visible, select:focus-visible, textarea:focus-visible, label.btn:focus-within, nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  .check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+  .spacer { flex: 1; }
+  main { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 12px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  .pane { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; min-height: 280px; overflow: hidden; }
+  .pane-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+  textarea, pre#out {
+    flex: 1; margin: 0; padding: 12px; border: 0; background: transparent; color: var(--text);
+    font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    resize: none; width: 100%; min-height: 50vh; overflow: auto; tab-size: 2;
+  }
+  textarea { outline: none; }
+  pre#out { white-space: pre; }
+  pre#out:empty::before { content: "Formatted output appears here"; color: var(--muted); }
+  .k { color: var(--key); } .s { color: var(--value); } .b { color: var(--bool); }
+  .n { color: var(--num); } .c { color: var(--comment); font-style: italic; }
+  #status { margin: 0 auto; width: 100%; max-width: 1400px; padding: 0 16px 12px; }
+  #status div { padding: 8px 12px; border-radius: 6px; font-size: 14px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); }
+  #status div.err { background: var(--error-bg); border-color: var(--error); color: var(--error); }
+  footer { padding-bottom: 16px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>YAML Formatter <small>runs entirely in your browser</small></h1>
+  <div style="display:flex;gap:8px;align-items:center">
+    <nav aria-label="Tools"><a href="index.html">JSON</a><a href="xml.html">XML</a><a href="yaml.html" aria-current="page">YAML</a><a href="sql.html">SQL</a></nav>
+    <button id="theme" class="icon" type="button" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+  </div>
+</header>
+
+<div class="toolbar" style="max-width:1400px;margin:0 auto;width:100%;padding-left:16px;padding-right:16px">
+  <button id="format" class="primary" type="button">Format</button>
+  <button id="validate" type="button">Validate</button>
+  <button id="tojson" type="button">To JSON</button>
+  <select id="indent" aria-label="Indentation">
+    <option value="2">2 spaces</option>
+    <option value="4">4 spaces</option>
+  </select>
+  <label class="check"><input type="checkbox" id="sort"> Sort keys</label>
+  <span class="spacer"></span>
+  <label class="btn" title="Open file" aria-label="Open file"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><input type="file" id="file" accept=".yaml,.yml,text/yaml,text/plain" hidden></label>
+  <button id="copy" class="icon" type="button" title="Copy" aria-label="Copy"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>
+  <button id="download" class="icon" type="button" title="Download" aria-label="Download"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></button>
+  <button id="clear" class="icon" type="button" title="Clear" aria-label="Clear"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
+</div>
+
+<div id="status" aria-live="polite"><div id="msg">Paste YAML on the left.</div></div>
+
+<main>
+  <section class="pane">
+    <div class="pane-head"><span>Input</span><span id="inSize"></span></div>
+    <textarea id="in" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="name: example&#10;items:&#10;  - one&#10;  - two"></textarea>
+  </section>
+  <section class="pane">
+    <div class="pane-head"><span id="outTitle">Output</span><span id="outSize"></span></div>
+    <pre id="out"></pre>
+  </section>
+</main>
+
+<footer>Your data never leaves this page. Formatting re-writes the YAML, so comments are not kept. Tip: press Ctrl/Cmd + Enter to format.</footer>
+
+<script src="vendor/js-yaml.min.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var input = $("in"), out = $("out"), msg = $("msg");
+  var plain = "", ext = "yaml";
+
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function bytes(s) {
+    var n = new Blob([s]).size;
+    return n < 1024 ? n + " B" : (n / 1024).toFixed(1) + " KB";
+  }
+  function setStatus(text, isErr) { msg.textContent = text; msg.className = isErr ? "err" : ""; }
+  function span(c, t) { return '<span class="' + c + '">' + t + "</span>"; }
+
+  function hlValue(v) {
+    if (!v) return "";
+    var m = /^(\s*)(.*?)(\s*)$/.exec(v), body = m[2], c = "s";
+    if (/^(true|false|null|~)$/i.test(body)) c = "b";
+    else if (/^[-+]?(\d[\d_]*)(\.\d+)?([eE][-+]?\d+)?$/.test(body) || /^0x[0-9a-f]+$/i.test(body)) c = "n";
+    else if (/^[&*!]/.test(body)) c = "b";
+    return m[1] + span(c, body) + m[3];
+  }
+
+  function hlYaml(text) {
+    return text.split("\n").map(function (line) {
+      var l = esc(line), m;
+      if (/^\s*#/.test(line)) return span("c", l);
+      if (/^(---|\.\.\.)\s*$/.test(line)) return span("c", l);
+      if ((m = /^(\s*(?:- )*)([^\s:#\-][^:]*?|"[^"]*"|'[^']*')(:)(\s.*|)$/.exec(l)))
+        return m[1] + span("k", m[2]) + m[3] + hlValue(m[4]);
+      if ((m = /^(\s*(?:- )+)(.*)$/.exec(l))) return m[1] + hlValue(m[2]);
+      return hlValue(l);
+    }).join("\n");
+  }
+
+  function hlJson(text) {
+    return esc(text).replace(
+      /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+      function (m) {
+        var c = "n";
+        if (m.charAt(0) === '"') c = /:$/.test(m) ? "k" : "s";
+        else if (m === "true" || m === "false" || m === "null") c = "b";
+        return span(c, m);
+      });
+  }
+
+  function sortKeys(v) {
+    if (Array.isArray(v)) return v.map(sortKeys);
+    if (v && typeof v === "object" && !(v instanceof Date)) {
+      var o = {};
+      Object.keys(v).sort().forEach(function (k) { o[k] = sortKeys(v[k]); });
+      return o;
+    }
+    return v;
+  }
+
+  function parse(text) {
+    try { return { docs: jsyaml.loadAll(text) }; }
+    catch (e) { return { error: e }; }
+  }
+
+  function report(e, text, jump) {
+    var mark = e.mark;
+    setStatus("Invalid YAML: " + (e.reason || e.message.split("\n")[0]) +
+      (mark ? " (line " + (mark.line + 1) + ", column " + (mark.column + 1) + ")" : ""), true);
+    if (jump && mark && typeof mark.position === "number") {
+      input.focus();
+      input.setSelectionRange(mark.position, Math.min(mark.position + 1, text.length));
+    }
+  }
+
+  function clearOutput() { plain = ""; out.textContent = ""; $("outSize").textContent = ""; }
+
+  function run(mode, jump) {
+    var text = input.value;
+    $("inSize").textContent = text ? bytes(text) : "";
+    if (!text.trim()) { clearOutput(); setStatus("Paste YAML on the left.", false); return; }
+    var res = parse(text);
+    if (res.error) { clearOutput(); report(res.error, text, jump); return; }
+    var docs = res.docs.filter(function (d) { return d !== undefined; });
+    var ind = +$("indent").value, sort = $("sort").checked;
+    try {
+      if (mode === "json") {
+        var data = sort ? sortKeys(docs.length === 1 ? docs[0] : docs) : (docs.length === 1 ? docs[0] : docs);
+        plain = JSON.stringify(data, null, ind);
+        out.innerHTML = hlJson(plain);
+        ext = "json";
+        $("outTitle").textContent = "Output (JSON)";
+      } else {
+        plain = docs.map(function (d) {
+          return jsyaml.dump(sort ? sortKeys(d) : d, { indent: ind, lineWidth: -1, noRefs: true }).replace(/\n$/, "");
+        }).join("\n---\n");
+        out.innerHTML = hlYaml(plain);
+        ext = "yaml";
+        $("outTitle").textContent = "Output";
+      }
+    } catch (e) {
+      clearOutput();
+      setStatus("Could not convert: " + e.message.split("\n")[0], true);
+      return;
+    }
+    $("outSize").textContent = bytes(plain);
+    setStatus("Valid YAML (" + docs.length + (docs.length === 1 ? " document" : " documents") + "). " +
+      (mode === "json" ? "Converted to JSON" : "Formatted") + ": " + bytes(text) + " → " + bytes(plain) + ".", false);
+  }
+
+  function check() {
+    var text = input.value;
+    if (!text.trim()) { setStatus("Nothing to validate.", false); return; }
+    var res = parse(text);
+    if (res.error) { report(res.error, text, true); return; }
+    var n = res.docs.length;
+    setStatus("✓ Valid YAML: " + n + (n === 1 ? " document." : " documents."), false);
+  }
+
+  var timer;
+  input.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(function () { run(ext === "json" ? "json" : "yaml"); }, 250); });
+  input.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run("yaml", true); }
+  });
+  $("format").onclick = function () { run("yaml", true); };
+  $("tojson").onclick = function () { run("json", true); };
+  $("validate").onclick = check;
+  $("indent").onchange = $("sort").onchange = function () { run(ext === "json" ? "json" : "yaml"); };
+  $("clear").onclick = function () { input.value = ""; run("yaml"); input.focus(); };
+
+  $("copy").onclick = function () {
+    if (!plain) return;
+    var done = function () { setStatus("Copied to clipboard.", false); };
+    if (navigator.clipboard) navigator.clipboard.writeText(plain).then(done, function () { setStatus("Copy failed.", true); });
+  };
+
+  $("download").onclick = function () {
+    if (!plain) return;
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([plain], { type: ext === "json" ? "application/json" : "text/yaml" }));
+    a.download = "formatted." + ext;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  function loadFile(f) {
+    var r = new FileReader();
+    r.onload = function () { input.value = r.result; run("yaml"); };
+    r.readAsText(f);
+  }
+  $("file").onchange = function (e) { if (e.target.files[0]) loadFile(e.target.files[0]); e.target.value = ""; };
+  input.addEventListener("dragover", function (e) { e.preventDefault(); });
+  input.addEventListener("drop", function (e) {
+    var f = e.dataTransfer.files[0];
+    if (!f) return;
+    e.preventDefault();
+    loadFile(f);
+  });
+
+  function applyTheme(t) { if (t) document.documentElement.setAttribute("data-theme", t); }
+  try { applyTheme(localStorage.getItem("theme")); } catch (e) {}
+  $("theme").onclick = function () {
+    var cur = document.documentElement.getAttribute("data-theme") ||
+      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var next = cur === "dark" ? "light" : "dark";
+    applyTheme(next);
+    try { localStorage.setItem("theme", next); } catch (e) {}
+  };
+
+  run("yaml");
+})();
+</script>
+</body>
+</html>

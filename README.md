@@ -6,6 +6,13 @@ A small, dependency-free JSON formatter, minifier and validator. Everything runs
 
 There is also an XML formatter at `xml.html` (format, minify, well-formedness check with the parser's error message, syntax highlighting, open/drop file, copy, download).
 
+Also included:
+
+- `yaml.html`: format, validate (with line and column), convert to JSON, sort keys. Formatting re-writes the YAML, so comments are not kept.
+- `sql.html`: format SQL for many dialects (PostgreSQL, MySQL, SQLite, T-SQL, Oracle, BigQuery and more). It formats only; it does not check that a query is valid for your database.
+
+The YAML and SQL pages use two small libraries that are bundled in `vendor/` (so nothing loads from a CDN): [js-yaml](https://github.com/nodeca/js-yaml) 4.1.0 and [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) 15.4.5, both MIT licensed (licenses included).
+
 ## Use locally
 
 Open `index.html` in a browser. There is no build step.
