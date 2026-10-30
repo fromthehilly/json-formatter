@@ -165,7 +165,7 @@
   // Report a parse error; when `jump` is set, select the offending character in the input.
   function report(e, text, jump) {
     var info = errorInfo(e, text);
-    setStatus("Invalid JSON: " + e.message.replace(/^JSON\.parse: /, "") +
+    setStatus("Invalid JSON: " + e.message.replace(/^JSON\.parse: /, "").replace(/\s*\(line \d+ column \d+\)/, "") +
       (info ? " (line " + info.line + ", column " + info.col + ")" : ""), true);
     if (jump && info) {
       input.focus();
