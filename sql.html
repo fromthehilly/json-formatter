@@ -131,6 +131,7 @@
     o.value = d; o.textContent = LABELS[d] || d;
     $("dialect").appendChild(o);
   });
+  if (dialects.indexOf("sql") >= 0) $("dialect").value = "sql";
   try { var saved = localStorage.getItem("sqlDialect"); if (saved && dialects.indexOf(saved) >= 0) $("dialect").value = saved; } catch (e) {}
 
   function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
